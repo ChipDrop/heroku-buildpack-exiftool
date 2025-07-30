@@ -10,13 +10,13 @@ indent() {
 
 BUILD_DIR=$1
 CACHE_DIR=$2
-BUILDPACK_DIR=`cd $(dirname $0)/..; pwd`
+BUILDPACK_DIR=$(cd "$(dirname $0)/.."; pwd)
 
 # extract url of latest production version from the rss feed
 RSSFEED_URL="https://exiftool.org/rss.xml"
-TARBALL_URL="$(curl -s -o - "$RSSFEED_URL" | perl -ne 'if (!$got && (/\<title\>.+production release.+\<\/title\>/i .. /\<\/item\>/) && /enclosure.+(http.+\.tar\.gz)/) {print $1; $got = 1}')"
-RENAME_DIR="$(echo "$TARBALL_URL" | perl -ne '/.+\/(.+)\.tar\.gz/ && print $1')"
-VERSION_NO="$(echo "$RENAME_DIR"  | perl -ne '/ExifTool-(.+)$/i   && print $1')"
+TARBALL_URL=$(curl -s "$RSSFEED_URL" | perl -ne 'if (!$got && (/\<title\>.+production release.+\<\/title\>/i .. /\<\/item\>/) && /enclosure.+(http.+\.tar\.gz)/) {print $1; $got = 1}')
+RENAME_DIR=$(echo "$TARBALL_URL" | perl -ne '/.+\/(.+)\.tar\.gz/ && print $1')
+VERSION_NO=$(echo "$RENAME_DIR" | perl -ne '/ExifTool-(.+)$/i && print $1')
 
 PROFILE_PATH="$BUILD_DIR/.profile.d"
 TARGET_PATH="$BUILD_DIR/vendor"
@@ -28,16 +28,21 @@ cd "$TARGET_PATH"
 
 # download and unpack
 echo "Fetching $TARBALL_URL" | indent
-curl --fail --retry 3 --retry-delay 1 --connect-timeout 3 "$TARBALL_URL" -s -o - | tar xzf -
+curl --fail --retry 3 --retry-delay 1 --connect-timeout 3 "$TARBALL_URL" -s | tar xzf -
 
-# configure path
+# move to expected location
+mv "$RENAME_DIR" exiftool
+cd exiftool
+
+# make standalone binary executable
+chmod +x exiftool
+
+# add to PATH at runtime
 mkdir -p "$PROFILE_PATH"
 cat <<EOF > "$PROFILE_PATH/exiftool.sh"
 export PATH="$VENDOR_PATH/exiftool:\$PATH"
 EOF
 
 # show installed version
-mv "$RENAME_DIR" exiftool
-cd ./exiftool
-echo "Installed: "`ls exif*` | indent
+echo "Installed: $(./exiftool -ver)" | indent
 echo
